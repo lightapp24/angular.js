@@ -28,6 +28,7 @@ function parseAbsoluteUrl(absoluteUrl, locationObj) {
   locationObj.$$protocol = parsedUrl.protocol;
   locationObj.$$host = parsedUrl.hostname;
   locationObj.$$port = toInt(parsedUrl.port) || DEFAULT_PORTS[parsedUrl.protocol] || null;
+  locationObj.$$basePath = stripFile(parsedUrl.pathname);
 }
 
 var DOUBLE_SLASH_REGEX = /^\s*[\\/]{2,}/;
@@ -359,6 +360,12 @@ var locationPrototype = {
   $$replace: false,
 
   /**
+   * Contain BasePath/Href
+   * @private
+   */
+  $$BasePath: '/',
+
+  /**
    * @ngdoc method
    * @name $location#absUrl
    *
@@ -624,7 +631,19 @@ var locationPrototype = {
   replace: function() {
     this.$$replace = true;
     return this;
-  }
+  },
+
+  /**
+   * @ngdoc method
+   * @name $location#basePath
+   *
+   * @description
+   * This method is getter.
+   *
+   * Returns the base path.
+   * @return {string}
+   */
+  basePath: locationGetter('$$BasePath')
 };
 
 forEach([LocationHashbangInHtml5Url, LocationHashbangUrl, LocationHtml5Url], function(Location) {
