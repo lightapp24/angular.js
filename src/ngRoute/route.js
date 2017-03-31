@@ -9,6 +9,8 @@ var isObject;
 var isDefined;
 var noop;
 
+var BASE_PATH_MATCH = /^(\[(.+)\])(.*)$/;
+
 /**
  * @ngdoc module
  * @name ngRoute
@@ -60,6 +62,15 @@ function $RouteProvider() {
 
   function inherit(parent, extra) {
     return angular.extend(Object.create(parent), extra);
+  }
+
+  function splitBasePaths(basePath) {
+    var result = [];
+    angular.forEach(basePath.split(','),function(value) {
+      var trimed = value.trim();
+      result.push(trimed.charAt(0) !== '/' ? '/' + trimed : trimed);
+    });
+    return result;
   }
 
   var routes = {};
@@ -263,6 +274,10 @@ function $RouteProvider() {
         keys = ret.keys = [];
 
     path = path
+      .replace(BASE_PATH_MATCH, function(_,__,basePath,path) {
+        ret.basePaths = splitBasePaths(basePath);
+        return path;
+      })
       .replace(/([().])/g, '\\$1')
       .replace(/(\/)?:(\w+)(\*\?|[?*])?/g, function(_, slash, key, option) {
         var optional = (option === '?' || option === '*?') ? '?' : null;
@@ -622,7 +637,7 @@ function $RouteProvider() {
     /////////////////////////////////////////////////////
 
     /**
-     * @param on {string} current url
+     * @param location {object} location
      * @param route {Object} route regexp to match the url against
      * @return {?Object}
      *
@@ -632,14 +647,18 @@ function $RouteProvider() {
      * Inspired by match in
      * visionmedia/express/lib/router/router.js.
      */
-    function switchRouteMatcher(on, route) {
+    function switchRouteMatcher(location, route) {
       var keys = route.keys,
           params = {};
 
       if (!route.regexp) return null;
 
-      var m = route.regexp.exec(on);
+      var m = route.regexp.exec(location.path());
       if (!m) return null;
+
+      if (route.basePaths && !compareBasePath(route.basePaths,location.basePath(),route.caseInsensitiveMatch)) {
+          return null;
+      }
 
       for (var i = 1, len = m.length; i < len; ++i) {
         var key = keys[i - 1];
@@ -770,11 +789,25 @@ function $RouteProvider() {
             url(newUrl).
             replace();
         } else {
-          newUrl = $location.
-            path(data.path).
-            search(data.search).
-            replace().
-            url();
+          var m = BASE_PATH_MATCH.exec(data.path);
+          var basePaths;
+
+          if (m) {
+            basePaths = splitBasePaths(m[2]);
+          }
+
+          if (basePaths && !compareBasePath(basePaths,$location.basePath(),data.route.caseInsensitiveMatch)) {
+            var url = $location.$$buildURL(basePaths[0],m[3],data.search);
+            $browser.url(url);
+            return false;
+          } else {
+            var path = (m ? m[3] : data.path);
+            newUrl = $location.
+              path(path).
+              search(data.search).
+              replace().
+              url();
+          }
         }
 
         if (newUrl !== oldUrl) {
@@ -821,22 +854,40 @@ function $RouteProvider() {
       return template;
     }
 
+    function makeRouteMatchObject(route, location, params) {
+        var result = inherit(route, {
+          params: angular.extend({}, location.search(), params),
+          pathParams: params});
+        result.$$route = route;
+        return result;
+    }
+
+    function compareBasePath(basePaths, basePath, caseInsensitive) {
+      for (var i = 0; i < basePaths.length; ++i) {
+        if (caseInsensitive ? basePaths[i].toLowerCase() === basePath.toLowerCase() :
+            basePaths[i] === basePath)
+          return true;
+      }
+
+      return false;
+    }
+
     /**
      * @returns {Object} the current active route, by matching it against the URL
      */
     function parseRoute() {
       // Match a route
-      var params, match;
+      var match, matchByBasePath;
       angular.forEach(routes, function(route, path) {
-        if (!match && (params = switchRouteMatcher($location.path(), route))) {
-          match = inherit(route, {
-            params: angular.extend({}, $location.search(), params),
-            pathParams: params});
-          match.$$route = route;
+        var params = switchRouteMatcher($location, route);
+        if (route.basePaths && !matchByBasePath && params) {
+          matchByBasePath = makeRouteMatchObject(route,$location,params);
+        } else if (!match && params) {
+          match = makeRouteMatchObject(route,$location,params);
         }
       });
       // No route matched; fallback to "otherwise" route
-      return match || routes[null] && inherit(routes[null], {params: {}, pathParams:{}});
+      return matchByBasePath || match || routes[null] && inherit(routes[null], {params: {}, pathParams:{}});
     }
 
     /**
@@ -844,7 +895,8 @@ function $RouteProvider() {
      */
     function interpolate(string, params) {
       var result = [];
-      angular.forEach((string || '').split(':'), function(segment, i) {
+      var m = BASE_PATH_MATCH.exec(string);
+      angular.forEach(((m ? m[3] : string) || '').split(':'), function(segment, i) {
         if (i === 0) {
           result.push(segment);
         } else {
@@ -855,7 +907,7 @@ function $RouteProvider() {
           delete params[key];
         }
       });
-      return result.join('');
+      return (m ? m[1] + (result.join('')) : result.join(''));
     }
   }];
 }

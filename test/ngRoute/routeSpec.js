@@ -2266,4 +2266,227 @@ describe('$route', function() {
       });
     });
   });
+
+
+  describe('should routing by base path', function() {
+    it('should make redirect and use this', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('[/root,/root/]/some', {
+          id: 'some', template: 'Some'
+        });
+      });
+      module(provideLog);
+      initService({html5Mode:false,hashPrefix: '!',supportHistory:false});
+      initBrowser({url:'http://server/root/#!/home',basePath:'/root/'});
+      inject(function($route, $location, $rootScope, $compile, $browser, log) {
+        expect($route.routes['[/root,/root/]/some/']).toBeDefined();
+        expect($route.routes['[/root,/root/]/some/'].redirectTo).toBe('[/root,/root/]/some');
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$on('$routeChangeSuccess', log.fn('routeChangeSuccess'));
+        $rootScope.$on('$locationChangeSuccess', log.fn('locationChangeSuccess'));
+        $rootScope.$apply(function() {
+          $location.path('/some/');
+        });
+        expect($route.current.id).toBe('some');
+        expect($location.path()).toBe('/some');
+        expect($browser.url()).toBe('http://server/root/#!/some');
+        expect(log).toEqual(['locationChangeSuccess', 'locationChangeSuccess', 'routeChangeSuccess']);
+      });
+    });
+
+    it('should make redirect and use this (html5 mode)', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('[/root,/root/]/some', {
+          id: 'some', template: 'Some'
+        });
+      });
+      module(provideLog);
+      initService({html5Mode:true,hashPrefix: '!',supportHistory:true});
+      initBrowser({url:'http://server/root/home',basePath:'/root/'});
+      inject(function($route, $location, $rootScope, $compile, $browser, log) {
+        expect($route.routes['[/root,/root/]/some/']).toBeDefined();
+        expect($route.routes['[/root,/root/]/some/'].redirectTo).toBe('[/root,/root/]/some');
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$on('$routeChangeSuccess', log.fn('routeChangeSuccess'));
+        $rootScope.$on('$locationChangeSuccess', log.fn('locationChangeSuccess'));
+        $rootScope.$apply(function() {
+          $location.path('/some/');
+        });
+        expect($route.current.id).toBe('some');
+        expect($location.path()).toBe('/some');
+        expect($browser.url()).toBe('http://server/root/some');
+        expect(log).toEqual(['locationChangeSuccess', 'locationChangeSuccess', 'routeChangeSuccess']);
+      });
+    });
+
+    it('should be routed only by base path', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('/some', {
+          id: 'some2', template: 'Some #2'
+        });
+        $routeProvider.when('[/root1,/root1/]/some', {
+          id: 'some1', template: 'Some #1'
+        });
+      });
+
+      initService({html5Mode:false,hashPrefix: '!',supportHistory:false});
+      initBrowser({url:'http://server/root1/#!/some',basePath:'/root1/'});
+      inject(function($route, $location, $rootScope, $compile, $browser) {
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$apply();
+        expect($route.current.id).toBe('some1');
+        expect($location.path()).toBe('/some');
+        expect($browser.url()).toBe('http://server/root1/#!/some');
+        expect(element.html()).toContain('Some #1');
+      });
+    });
+
+    it('should be routed only by base path (Html5 mode)', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('/some', {
+          id: 'some2', template: 'Some #2'
+        });
+        $routeProvider.when('[/root1,/root1/]/some', {
+          id: 'some1', template: 'Some #1'
+        });
+      });
+
+      initService({html5Mode:true,hashPrefix: '!',supportHistory:true});
+      initBrowser({url:'http://server/root1/some',basePath:'/root1/'});
+      inject(function($route, $location, $rootScope, $compile, $browser) {
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$apply();
+        expect($route.current.id).toBe('some1');
+        expect($location.path()).toBe('/some');
+        expect($browser.url()).toBe('http://server/root1/some');
+        expect(element.html()).toContain('Some #1');
+      });
+    });
+
+    it('should be redirect to different base path', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('[/root,/root/]/redirect', {
+          id: 'redirect', redirectTo : '[/someroot/,/someroot]/some'
+        });
+      });
+      module(provideLog);
+      initService({html5Mode:false,hashPrefix: '!',supportHistory:false});
+      initBrowser({url:'http://server/root#!/home',basePath:'/root/'});
+      inject(function($route, $location, $rootScope, $compile, $browser, log) {
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$on('$locationChangeSuccess', log.fn('locationChangeSuccess'));
+        $rootScope.$apply(function() {
+          $location.path('/redirect');
+        });
+        expect($browser.url()).toBe('http://server/someroot/#!/some');
+        expect(log).toEqual(['locationChangeSuccess']);
+      });
+    });
+
+    it('should be redirect to different base path (Html5 mode)', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('[/root,/root/]/redirect', {
+          id: 'redirect', redirectTo : '[/someroot/,/someroot]/some'
+        });
+      });
+      module(provideLog);
+      initService({html5Mode:true,hashPrefix: '!',supportHistory:true});
+      initBrowser({url:'http://server/root/home',basePath:'/root/'});
+      inject(function($route, $location, $rootScope, $compile, $browser, log) {
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$on('$locationChangeSuccess', log.fn('locationChangeSuccess'));
+        $rootScope.$apply(function() {
+          $location.path('/redirect');
+        });
+        expect($browser.url()).toBe('http://server/someroot/some');
+        expect(log).toEqual(['locationChangeSuccess']);
+      });
+    });
+
+    it('should be redirect to different base path and interpolate parameters', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('[/:root,/:root/]/redirect/:param1/:param2/:param3', {
+          id: 'redirect', redirectTo : '[/some:root/,/some:root]/some/:param3/:param2/:param1'
+        });
+      });
+      module(provideLog);
+      initService({html5Mode:false,hashPrefix: '!',supportHistory:false});
+      initBrowser({url:'http://server/:root#!/home',basePath:'/:root/'});
+      inject(function($route, $location, $rootScope, $compile, $browser, log) {
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$on('$locationChangeSuccess', log.fn('locationChangeSuccess'));
+        $rootScope.$apply(function() {
+          $location.path('/redirect/first/second/third');
+        });
+        expect($browser.url()).toBe('http://server/some:root/#!/some/third/second/first');
+        expect(log).toEqual(['locationChangeSuccess']);
+      });
+    });
+
+    it('should be redirect to different base path and interpolate parameters (Html5 mode)', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('[/:root,/:root/]/redirect/:param1/:param2/:param3', {
+          id: 'redirect', redirectTo : '[/some:root/,/some:root]/some/:param3/:param2/:param1'
+        });
+      });
+      module(provideLog);
+      initService({html5Mode:true,hashPrefix: '!',supportHistory:true});
+      initBrowser({url:'http://server/:root/home',basePath:'/:root/'});
+      inject(function($route, $location, $rootScope, $compile, $browser, log) {
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$on('$locationChangeSuccess', log.fn('locationChangeSuccess'));
+        $rootScope.$apply(function() {
+          $location.path('/redirect/first/second/third');
+        });
+        expect($browser.url()).toBe('http://server/some:root/some/third/second/first');
+        expect(log).toEqual(['locationChangeSuccess']);
+      });
+    });
+
+    it('should be normalized the base path', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('[root,root/]/some', {
+          id: 'some', template: 'Some'
+        });
+      });
+      module(provideLog);
+      initService({html5Mode:false,hashPrefix: '!',supportHistory:false});
+      initBrowser({url:'http://server/root/#!/home',basePath:'/root/'});
+      inject(function($route, $location, $rootScope, $compile, $browser, log) {
+        expect($route.routes['[root,root/]/some'].basePaths).toEqual(['/root','/root/']);
+        expect($route.routes['[root,root/]/some/'].basePaths).toEqual(['/root','/root/']);
+        element = $compile('<div><div ng-view></div></div>')($rootScope);
+        $rootScope.$on('$routeChangeSuccess', log.fn('routeChangeSuccess'));
+        $rootScope.$on('$locationChangeSuccess', log.fn('locationChangeSuccess'));
+        $rootScope.$apply(function() {
+          $location.path('/some/');
+        });
+        expect($route.current.id).toBe('some');
+        expect($location.path()).toBe('/some');
+        expect($browser.url()).toBe('http://server/root/#!/some');
+        expect(log).toEqual(['locationChangeSuccess', 'locationChangeSuccess', 'routeChangeSuccess']);
+      });
+    });
+
+    function initService(options) {
+      return module(function($provide, $locationProvider) {
+        $locationProvider.html5Mode(options.html5Mode);
+        $locationProvider.hashPrefix(options.hashPrefix);
+        $provide.value('$sniffer', {history: options.supportHistory});
+      });
+    }
+
+    function initBrowser(options) {
+      return module(function($browserProvider) {
+        var oldGet = $browserProvider.$get;
+        $browserProvider.$get = function() {
+          var browser = oldGet.apply($browserProvider,arguments);
+          browser.url(options.url);
+          browser.$$baseHref = options.basePath;
+          return browser;
+        };
+      });
+    }
+
+  });
 });

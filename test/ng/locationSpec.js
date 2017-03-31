@@ -105,6 +105,7 @@ describe('$location', function() {
       expect(locationUrl.search()).toEqual({search: 'a', b: 'c', d: true});
       expect(locationUrl.hash()).toBe('hash');
       expect(locationUrl.url()).toBe('/path/b?search=a&b=c&d#hash');
+      expect(locationUrl.basePath()).toBe('/');
     });
 
 
@@ -384,6 +385,7 @@ describe('$location', function() {
     it('should prepend path with basePath', function() {
       var locationUrl = new LocationHtml5Url('http://server/base/', 'http://server/base/');
       locationUrl.$$parse('http://server/base/abc?a');
+      expect(locationUrl.basePath()).toBe('/base/');
       expect(locationUrl.path()).toBe('/abc');
       expect(locationUrl.search()).toEqual({a: true});
 
@@ -489,6 +491,73 @@ describe('$location', function() {
         expect(locationUrl.search()).toEqual({'a+b':'c+d'});
       });
 
+    });
+
+    describe('basePath', function() {
+      it('should return base path with slash',function() {
+        var locationUrl = new LocationHtml5Url('http://server/base/', 'http://server/base/');
+        expect(locationUrl.basePath()).toBe('/base/');
+      });
+
+      it('should return base path without slash',function() {
+        var locationUrl = new LocationHtml5Url('http://server/base', 'http://server/');
+        expect(locationUrl.basePath()).toBe('/base');
+      });
+
+      it('should receive base path from browser', function() {
+        initService({html5Mode:true,hashPrefix: '!',supportHistory: true});
+        mockUpBrowser({initialUrl:'http://server/base', baseHref:'/base/'});
+        inject(
+          function($location) {
+            expect($location.basePath()).toBe('/base/');
+          }
+        );
+      });
+
+      it('should receive base path from browser without slash', function() {
+        initService({html5Mode:true,hashPrefix: '!',supportHistory: true});
+        mockUpBrowser({initialUrl:'http://server/base', baseHref:'/base'});
+        inject(
+          function($location) {
+            expect($location.basePath()).toBe('/base');
+          }
+        );
+      });
+    });
+
+    describe('$$buildURL', function() {
+      it('should build correct URL',function() {
+        var locationUrl = new LocationHtml5Url('http://server/base/', 'http://server/base/');
+        expect(locationUrl.$$buildURL('newbase','path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase','/path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase','path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+        expect(locationUrl.$$buildURL('newbase','/path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+
+        expect(locationUrl.$$buildURL('/newbase','path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase','/path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase','path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase','/path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+
+        expect(locationUrl.$$buildURL('newbase/','path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase/','/path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase/','path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+        expect(locationUrl.$$buildURL('newbase/','/path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+
+        expect(locationUrl.$$buildURL('/newbase/','path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase/','/path',{s:'sparam'})).toBe('http://server/newbase/path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase/','path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase/','/path/',{s:'sparam'})).toBe('http://server/newbase/path/?s=sparam');
+      });
+
+      it('should encode special characters',function() {
+        var locationUrl = new LocationHtml5Url('http://server/base/', 'http://server/base/');
+        expect(locationUrl.$$buildURL('/a <>#/','/a <>#',{'i j':'a <>#'})).toBe('http://server/a%20%3C%3E%23/a%20%3C%3E%23?i%20j=a%20%3C%3E%23');
+      });
+
+      it('should not encode !$:@',function() {
+        var locationUrl = new LocationHtml5Url('http://server/base/', 'http://server/base/');
+        expect(locationUrl.$$buildURL('/!$:@/','/!$:@')).toBe('http://server/!$:@/!$:@');
+      });
     });
   });
 
@@ -661,6 +730,73 @@ describe('$location', function() {
         expect(locationUrl.absUrl()).toEqual('http://host.com?q=1%2F2%203');
         locationUrl.search({'q': '4/5 6'});
         expect(locationUrl.absUrl()).toEqual('http://host.com?q=4%2F5%206');
+      });
+    });
+
+    describe('basePath', function() {
+      it('should return base path with slash',function() {
+        var locationUrl = new LocationHashbangUrl('http://www.server.org:1234/base/', 'http://www.server.org:1234/base/', '#!');
+        expect(locationUrl.basePath()).toBe('/base/');
+      });
+
+      it('should return base path without slash',function() {
+        var locationUrl = new LocationHashbangUrl('http://www.server.org:1234/base', 'http://www.server.org:1234/', '#!');
+        expect(locationUrl.basePath()).toBe('/base');
+      });
+
+      it('should receive base path from browser', function() {
+        initService({html5Mode:false,hashPrefix: '!',supportHistory: false});
+        mockUpBrowser({initialUrl:'http://server/base/#!/path', baseHref:'/base/'});
+        inject(
+          function($location) {
+            expect($location.basePath()).toBe('/base/');
+          }
+        );
+      });
+
+      it('should receive base path from browser without slash', function() {
+        initService({html5Mode:false,hashPrefix: '!',supportHistory: false});
+        mockUpBrowser({initialUrl:'http://server/base#!/path', baseHref:'/base/'});
+        inject(
+          function($location) {
+            expect($location.basePath()).toBe('/base');
+          }
+        );
+      });
+    });
+
+    describe('$$buildURL', function() {
+      it('should build correct URL',function() {
+        var locationUrl = new LocationHashbangUrl('http://server/base/', 'http://server/base/', '#!');
+        expect(locationUrl.$$buildURL('newbase','path',{s:'sparam'})).toBe('http://server/newbase#!path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase','/path',{s:'sparam'})).toBe('http://server/newbase#!/path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase','path/',{s:'sparam'})).toBe('http://server/newbase#!path/?s=sparam');
+        expect(locationUrl.$$buildURL('newbase','/path/',{s:'sparam'})).toBe('http://server/newbase#!/path/?s=sparam');
+
+        expect(locationUrl.$$buildURL('/newbase','path',{s:'sparam'})).toBe('http://server/newbase#!path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase','/path',{s:'sparam'})).toBe('http://server/newbase#!/path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase','path/',{s:'sparam'})).toBe('http://server/newbase#!path/?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase','/path/',{s:'sparam'})).toBe('http://server/newbase#!/path/?s=sparam');
+
+        expect(locationUrl.$$buildURL('newbase/','path',{s:'sparam'})).toBe('http://server/newbase/#!path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase/','/path',{s:'sparam'})).toBe('http://server/newbase/#!/path?s=sparam');
+        expect(locationUrl.$$buildURL('newbase/','path/',{s:'sparam'})).toBe('http://server/newbase/#!path/?s=sparam');
+        expect(locationUrl.$$buildURL('newbase/','/path/',{s:'sparam'})).toBe('http://server/newbase/#!/path/?s=sparam');
+
+        expect(locationUrl.$$buildURL('/newbase/','path',{s:'sparam'})).toBe('http://server/newbase/#!path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase/','/path',{s:'sparam'})).toBe('http://server/newbase/#!/path?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase/','path/',{s:'sparam'})).toBe('http://server/newbase/#!path/?s=sparam');
+        expect(locationUrl.$$buildURL('/newbase/','/path/',{s:'sparam'})).toBe('http://server/newbase/#!/path/?s=sparam');
+      });
+
+      it('should encode special characters',function() {
+        var locationUrl = new LocationHashbangUrl('http://server/base/', 'http://server/base/', '#!');
+        expect(locationUrl.$$buildURL('/a <>#/','/a <>#',{'i j':'a <>#'})).toBe('http://server/a%20%3C%3E%23/#!/a%20%3C%3E%23?i%20j=a%20%3C%3E%23');
+      });
+
+      it('should not encode !$:@',function() {
+        var locationUrl = new LocationHashbangUrl('http://server/base/', 'http://server/base/', '#!');
+        expect(locationUrl.$$buildURL('/!$:@/','/!$:@')).toBe('http://server/!$:@/#!/!$:@');
       });
     });
   });

@@ -28,7 +28,7 @@ function parseAbsoluteUrl(absoluteUrl, locationObj) {
   locationObj.$$protocol = parsedUrl.protocol;
   locationObj.$$host = parsedUrl.hostname;
   locationObj.$$port = toInt(parsedUrl.port) || DEFAULT_PORTS[parsedUrl.protocol] || null;
-  locationObj.$$basePath = stripFile(parsedUrl.pathname);
+  locationObj.$$basePath = parsedUrl.pathname;
 }
 
 var DOUBLE_SLASH_REGEX = /^\s*[\\/]{2,}/;
@@ -106,6 +106,17 @@ function LocationHtml5Url(appBase, appBaseNoFile, basePrefix) {
   basePrefix = basePrefix || '';
   parseAbsoluteUrl(appBase, this);
 
+  this.$$buildURL = function(basePath, path, search) {
+      search = toKeyValue(search || {});
+
+      if (basePath.charAt(0) !== '/') basePath = '/' + basePath;
+      if (basePath.charAt(basePath.length - 1) !== '/') basePath = basePath + '/';
+      if (path.charAt(0) === '/') path = path.substr(1);
+
+      return serverBase(appBase) +
+            encodePath(basePath + path) +
+           (search ? '?' + search : '');
+  };
 
   /**
    * Parse given HTML5 (regular) URL string into properties
@@ -187,6 +198,12 @@ function LocationHashbangUrl(appBase, appBaseNoFile, hashPrefix) {
 
   parseAbsoluteUrl(appBase, this);
 
+  this.$$buildURL = function(basePath, path, search) {
+      search = isString(search) ? search : toKeyValue(search || {});
+      return serverBase(appBase) +
+           encodePath(basePath.charAt(0) !== '/' ? '/' + basePath : basePath) + hashPrefix +
+           encodePath(path) + (search ? '?' + search : '');
+  };
 
   /**
    * Parse given hashbang URL into properties
@@ -363,7 +380,7 @@ var locationPrototype = {
    * Contain BasePath/Href
    * @private
    */
-  $$BasePath: '/',
+  $$basePath: '/',
 
   /**
    * @ngdoc method
@@ -643,7 +660,7 @@ var locationPrototype = {
    * Returns the base path.
    * @return {string}
    */
-  basePath: locationGetter('$$BasePath')
+  basePath: locationGetter('$$basePath')
 };
 
 forEach([LocationHashbangInHtml5Url, LocationHashbangUrl, LocationHtml5Url], function(Location) {
